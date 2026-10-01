@@ -584,6 +584,19 @@ function seedData(){ return SEED; }
 /* ====== 工具 ====== */
 function uid(){ return 'n' + Math.random().toString(36).slice(2,9) + Date.now().toString(36).slice(-3); }
 function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(m){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];}); }
+/* 规范化网址 URL：兼容飞书表格返回的 {link,text,type} 对象 / 数组，统一为字符串 */
+function urlStr(u){
+  if(u == null) return '';
+  if(typeof u === 'string') return u;
+  // 对象：优先取 link，其次 text
+  if(typeof u === 'object'){
+    if(Array.isArray(u)){ if(u.length===0) return ''; return urlStr(u[0]); }
+    if(u.link) return String(u.link);
+    if(u.text) return String(u.text);
+    return '';
+  }
+  return String(u);
+}
 function $(s,root){return (root||document).querySelector(s);}
 function $$(s,root){return Array.prototype.slice.call((root||document).querySelectorAll(s));}
 function faviconFor(domain,sz){
@@ -629,6 +642,7 @@ function logoText(name){
   return n.charAt(0).toUpperCase();
 }
 function domainOf(url){
+  url = urlStr(url);
   try{ var u = new URL(url); return u.hostname; }catch(e){ 
     var m = String(url||'').match(/^(?:https?:\/\/)?([^\/:\s]+)/); return m?m[1]:''; }
 }
@@ -643,6 +657,14 @@ function load(){
     if(raw){ var d = JSON.parse(raw); if(d && d.bigCategories && d.bigCategories.length){ state.bigCategories = d.bigCategories; return; } }
   }catch(e){}
   state.bigCategories = seedData();
+}
+/* 全局规范化：把 site.url 的对象/数组格式（如飞书返回的 {link,text,type}）统一为字符串 */
+function sanitizeNav(){
+  (state.bigCategories||[]).forEach(function(b){
+    (b.children||[]).forEach(function(c){
+      (c.sites||[]).forEach(function(s){ if(s.url) s.url = urlStr(s.url); });
+    });
+  });
 }
 function save(){
   try{ localStorage.setItem(STORAGE_KEY, JSON.stringify({bigCategories:state.bigCategories})); }
@@ -755,13 +777,14 @@ function renderBlock(big, c, depth){
   return h;
 }
 function renderSiteCard(big, sub, s){
-  var dom = domainOf(s.url);
+  var url = urlStr(s.url);
+  var dom = domainOf(url);
   var h = '';
   var cardDragAttr = state.editMode ? ' draggable="true" data-k="site" data-id="' + s.id + '" data-sid="' + sub.id + '" data-big="' + big.id + '" title="拖拽可移动/排序"' : '';
-  h += '<a class="site-card' + (state.editMode?' drag':'') + '" href="' + esc(s.url) + '" target="_blank" rel="noopener" data-url="' + esc(s.url) + '"' + cardDragAttr + '>';
-  h += '<div class="site-logo" data-logo="' + esc(s.logo||'') + '" data-url="' + esc(s.url) + '" data-name="' + esc(s.name) + '">';
+  h += '<a class="site-card' + (state.editMode?' drag':'') + '" href="' + esc(url) + '" target="_blank" rel="noopener" data-url="' + esc(url) + '"' + cardDragAttr + '>';
+  h += '<div class="site-logo" data-logo="' + esc(s.logo||'') + '" data-url="' + esc(url) + '" data-name="' + esc(s.name) + '">';
   if(s.logo && s.logo !== 'auto') h += '<img src="' + esc(s.logo) + '" alt="" onerror="favErr(this)">';
-  else h += '<img src="' + favCandidates(dom)[0] + '" alt="" data-fc="' + esc(dom) + '" data-fi="0" data-url="' + esc(s.url) + '" data-name="' + esc(s.name) + '" onerror="favErr(this)">';
+  else h += '<img src="' + favCandidates(dom)[0] + '" alt="" data-fc="' + esc(dom) + '" data-fi="0" data-url="' + esc(url) + '" data-name="' + esc(s.name) + '" onerror="favErr(this)">';
   h += '</div>';
   h += '<div class="site-name">' + esc(s.name) + '</div>';
   h += '<div class="site-domain">' + esc(dom) + '</div>';
@@ -1092,11 +1115,11 @@ function renderSearch(){
   if(hits.length){
     h += '<div class="sites">';
     hits.forEach(function(hi){
-      var s = hi.site; var dom = domainOf(s.url);
-      h += '<a class="site-card" href="' + esc(s.url) + '" target="_blank" rel="noopener">';
-      h += '<div class="site-logo" data-url="' + esc(s.url) + '" data-name="' + esc(s.name) + '">';
+      var s = hi.site; var url = urlStr(s.url); var dom = domainOf(url);
+      h += '<a class="site-card" href="' + esc(url) + '" target="_blank" rel="noopener">';
+      h += '<div class="site-logo" data-url="' + esc(url) + '" data-name="' + esc(s.name) + '">';
       if(s.logo && s.logo!=='auto') h += '<img src="' + esc(s.logo) + '" alt="" onerror="favErr(this)">';
-      else h += '<img src="' + favCandidates(dom)[0] + '" alt="" data-fc="' + esc(dom) + '" data-fi="0" data-url="' + esc(s.url) + '" data-name="' + esc(s.name) + '" onerror="favErr(this)">';
+      else h += '<img src="' + favCandidates(dom)[0] + '" alt="" data-fc="' + esc(dom) + '" data-fi="0" data-url="' + esc(url) + '" data-name="' + esc(s.name) + '" onerror="favErr(this)">';
       h += '</div>';
       h += '<div class="site-name">' + hl(s.name) + '</div>';
       h += '<div class="site-domain">' + esc(dom) + '</div>';
@@ -1678,6 +1701,7 @@ function renderWebSearch(){
 
 /* ====== 初始化 ====== */
 load();
+sanitizeNav();
 if(!state.bigCategories.length){ state.bigCategories = seedData(); save(); }
 if(!state.activeBigId && state.bigCategories.length){ state.activeBigId = state.bigCategories[0].id; }
 renderAll();
