@@ -1,0 +1,13 @@
+# 敏感凭证与运行产物（严禁提交到公开仓库）
+_sync/_config.json
+_sync/_localdata.json
+*.log
+_error.log
+
+# Python
+__pycache__/
+*.pyc
+
+# 系统
+Thumbs.db
+.DS_Store
